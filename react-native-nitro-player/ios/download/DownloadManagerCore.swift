@@ -766,10 +766,13 @@ final class DownloadManagerCore: NSObject {
 
   private func startNextPendingDownload() {
     queue.async(flags: .barrier) {
+      // Oldest first, as on Android: `taskMetadata` is a Dictionary, so its own order is arbitrary
       while self.hasFreeDownloadSlot(),
-        let pendingId = self.taskMetadata.first(where: {
-          $0.value.state == .pending && self.activeTasks[$0.key] != nil
-        })?.key,
+        let pendingId = self.taskMetadata
+          .filter({ $0.value.state == .pending && self.activeTasks[$0.key] != nil })
+          .min(by: {
+            ($0.value.createdAt, $0.key) < ($1.value.createdAt, $1.key)
+          })?.key,
         let task = self.activeTasks[pendingId]
       {
         task.resume()
